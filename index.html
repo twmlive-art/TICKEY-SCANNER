@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TWM Door</title>
+<!-- TWM Door page v4.2-gh. Hosted outside Google so Live scan can use the camera. Data lives in the TWM Live Door & Customers sheet via the /exec link. To change the link, edit API_URL and EXEC_URL below. -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TWM Door">
+<meta name="theme-color" content="#0e0d0c">
+<link rel="apple-touch-icon" href="https://threewisemonkeyscolchester.com/wp-content/uploads/2025/03/TWM-POS-1024x640.png">
+<style>
+:root{--bg:#121014;--panel:#1e1b24;--panel2:#2a2631;--ink:#f3f0f6;--muted:#a39dac;--line:#3a3442;--accent:#e8417a;--ok:#1f9d55;--warn:#d98a00;--bad:#c0392b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;-webkit-text-size-adjust:100%}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:14px 16px;background:var(--panel2);color:var(--ink);cursor:pointer;touch-action:manipulation}
+button.pri{background:var(--accent);color:var(--on-accent,#fff)}
+button.ok{background:var(--ok);color:#fff}
+button.sm{padding:8px 12px;font-size:14px}
+input{font:inherit;font-size:17px;width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.wrap{max-width:640px;margin:0 auto;padding:12px 14px 80px}
+.screen[hidden]{display:none!important}
+h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spacing:.5px;text-transform:uppercase;margin:8px 0 4px}h2{font-family:var(--display,inherit);font-size:15px;font-weight:500;color:var(--accent);text-transform:uppercase;letter-spacing:2px;margin:20px 0 8px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:8px 0}
+.ev{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;text-align:left;background:var(--panel);border:1px solid var(--line);margin:8px 0;padding:14px}
+.ev b{display:block}.tag{font-size:11px;font-weight:700;background:var(--warn);color:#000;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:middle}
+.top{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 0 10px;border-bottom:3px solid var(--accent)}
+.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.row .no{flex:0 0 auto}
+.count{font-family:var(--display,inherit);font-size:34px;font-weight:700}.count small{font-size:15px;color:var(--muted);font-weight:600}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ok);margin-right:6px}
+.dot.wait{background:var(--warn)}.dot.err{background:var(--bad)}
+#res{border-radius:16px;padding:18px;margin:12px 0;text-align:center;display:none}
+#res.show{display:block}#res .big{font-family:var(--display,inherit);font-size:32px;font-weight:700;letter-spacing:.5px;line-height:1.1}#res .nm{font-size:22px;font-weight:700;margin-top:6px}
+#res.ok{background:var(--ok)}#res.warn{background:var(--warn);color:#000}#res.bad{background:var(--bad)}
+#res .acts{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+#res .acts button{background:rgba(0,0,0,.25);color:inherit}
+#cam{position:relative;border-radius:14px;overflow:hidden;background:#000;margin-top:10px;display:none}
+#cam.on{display:block}#cam video{width:100%;display:block;max-height:46vh;object-fit:cover}
+#cam .frame{position:absolute;inset:18% 18%;border:3px solid rgba(255,255,255,.8);border-radius:14px;pointer-events:none}
+.tabs{display:flex;gap:6px;margin:12px 0 6px}.tabs button{flex:1;padding:10px 6px;font-size:14px}.tabs button.on{background:var(--accent);color:var(--on-accent,#fff)}
+.p{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--line)}
+.p .n{font-weight:700}.p .o{font-size:12px;color:var(--muted)}
+.pill{min-width:56px;text-align:center;border-radius:10px;padding:8px 10px;font-weight:800;background:var(--panel2)}
+.pill.full{background:var(--ok);color:#fff}.pill.part{background:var(--warn);color:#000}
+#sheet{position:fixed;inset:auto 0 0 0;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));z-index:20;box-shadow:0 -10px 40px rgba(0,0,0,.5)}
+#sheet[hidden]{display:none}
+#codes{background:#fff;color:#000;padding:16px;border-radius:14px}
+#codes .q{display:inline-block;width:46%;margin:2%;text-align:center;vertical-align:top;font-size:13px}
+#codes canvas,#codes img{width:100%;max-width:220px}
+.err{color:#ff8a8a}
+.logo{display:inline-block;background:#fff;border-radius:12px;padding:6px 10px;line-height:0}
+.logo img{height:40px;width:auto;display:block}
+.logo.big{padding:12px 18px;margin:18px 0 8px}.logo.big img{height:78px}
+.logo.sm{padding:3px 6px;border-radius:8px}.logo.sm img{height:24px}
+.ev{border-left:4px solid var(--accent)}
+.snd{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.snd button{flex:1}
+#flash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:30}
+#flash.on{animation:fl .6s ease-out}#flash.ok{background:var(--ok)}#flash.warn{background:var(--warn)}#flash.bad{background:var(--bad)}
+@keyframes fl{0%{opacity:.6}100%{opacity:0}}
+:root{--bg:#0e0d0c;--accent:#e0a526;--on-accent:#111111;--panel:#1f1e1d;--panel2:#2d2c2c;--line:#3e3d3d;--display:'Oswald',Impact,'Arial Narrow Bold',system-ui,sans-serif}
+</style>
+</head><body>
+<div class="wrap">
+
+<!-- PIN -->
+<section id="sPin" class="screen">
+  <div style="text-align:center"><span class="logo big"><img src="https://threewisemonkeyscolchester.com/wp-content/uploads/2025/03/TWM-POS-1024x640.png" alt="Three Wise Monkeys"></span></div>
+  <h1 style="text-align:center">Door</h1>
+  <p class="muted" style="text-align:center">Enter the door PIN.</p>
+  <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="PIN">
+  <p><button class="pri" id="pinGo" style="width:100%">Open</button></p>
+  <p id="pinMsg" class="err"></p>
+</section>
+
+<!-- EVENTS -->
+<section id="sEvents" class="screen" hidden>
+  <div class="row"><span class="logo no"><img src="https://threewisemonkeyscolchester.com/wp-content/uploads/2025/03/TWM-POS-1024x640.png" alt="TWM"></span><span></span><button class="sm no" id="refreshEv">Refresh</button></div>
+  <h1>Pick a show</h1>
+  <div id="evNow"></div>
+  <h2>Archive</h2>
+  <div id="evOld"><p class="muted small">Shows move here at 6am the morning after.</p></div>
+  <h2>This phone</h2>
+  <div class="card">
+    <div class="snd"><button id="sndBtn">Sound on</button><button id="buzzBtn">Vibrate on</button><button id="testSnd">Test sounds</button></div>
+    <p class="small muted" style="margin:10px 0 0">Tap Test sounds once at the start of the night. You should hear three different sounds: admit, already in, not on list. On iPhone, check the ringer switch is on and the volume is up.</p>
+  </div>
+  <p class="small muted" style="margin-top:30px">Device: <span id="devName"></span> · <a href="#" id="lockBtn" style="color:var(--muted)">Lock (forget PIN)</a></p>
+</section>
+
+<!-- DOOR -->
+<section id="sDoor" class="screen" hidden>
+  <div class="top">
+    <div class="row">
+      <span class="logo sm no"><img src="https://threewisemonkeyscolchester.com/wp-content/uploads/2025/03/TWM-POS-1024x640.png" alt="TWM"></span>
+      <div><div id="evName" style="font-weight:800"></div><div class="small muted" id="evLabel"></div></div>
+      <button class="sm no" id="sndBtn2">Sound on</button>
+      <button class="sm no" id="backBtn">Shows</button>
+    </div>
+    <div class="row" style="margin-top:6px">
+      <div class="count" id="cnt">0 <small>/ 0 in</small></div>
+      <div class="no small" id="syncTxt"><span class="dot"></span>Saved</div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="pri" id="camBtn">Live scan</button>
+      <button id="photoBtn">Photo scan</button>
+      <input id="photo" type="file" accept="image/*" capture="environment" hidden>
+    </div>
+    <div id="cam"><video id="vid" playsinline muted></video><div class="frame"></div></div>
+    <div class="row" style="margin-top:8px">
+      <input id="q" placeholder="Order ID, ticket no. or name" autocomplete="off" autocapitalize="characters" enterkeyhint="go">
+      <button class="no" id="qGo">Check</button>
+    </div>
+  </div>
+  <div id="res"></div>
+  <div class="tabs"><button data-f="all" class="on">All</button><button data-f="out">Not in</button><button data-f="in">In</button></div>
+  <div id="list"></div>
+  <div style="margin-top:22px" class="row">
+    <button id="undoLast" class="sm">Undo last scan</button>
+    <button id="testCodes" class="sm" hidden>Test QR codes</button>
+  </div>
+  <h2>End of night</h2>
+  <div class="card">
+    <div class="row"><button id="printBtn" class="sm">Open print list</button><button id="listBtn" class="sm">Email print list (PDF)</button></div>
+    <div class="row" style="margin-top:8px"><button id="reportBtn" class="sm pri">Email results to AJ now</button></div>
+    <p class="small muted" style="margin:10px 0 0">Results go out by themselves just after midnight on the night of the show. Use the button if you want them sooner.</p>
+    <p id="eonMsg" class="small" style="margin:6px 0 0"></p>
+  </div>
+  <div id="codesWrap" hidden style="margin-top:12px"><div id="codes"></div></div>
+</section>
+</div>
+
+<div id="sheet" hidden></div>
+<div id="flash"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+(function(){
+var $=function(id){return document.getElementById(id);};
+function store(k,v){try{if(v===undefined){return JSON.parse(localStorage.getItem('twmdoor.'+k));}localStorage.setItem('twmdoor.'+k,JSON.stringify(v));}catch(e){return null;}}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
+var S={pin:store('pin')||'',device:store('device')||'',events:[],ev:null,att:[],server:[],pending:[],filter:'all',lastMine:[],busy:false,camOn:false,pause:0};
+if(!S.device){S.device='Phone-'+Math.random().toString(36).slice(2,6).toUpperCase();store('device',S.device);}
+$('devName').textContent=S.device;
+
+var API_URL='https://script.google.com/macros/s/AKfycbxjcYGYq24dP0wuiNrf9818OSywLxVpwIi__ZjJOwJL2ptMOyLC9w0irRqiyU8Z4G8/exec';
+function api(q){
+  q.pin=S.pin;
+  // Talks to the Apps Script /exec link directly. text/plain avoids a CORS preflight, Google answers with JSON.
+  return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(q),redirect:'follow'})
+    .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.text();})
+    .then(function(t){try{return JSON.parse(t);}catch(e){throw new Error('Unexpected reply from the sheet');}});
+}
+function show(id){['sPin','sEvents','sDoor'].forEach(function(s){$(s).hidden=s!==id;});}
+
+/* ---------- PIN + events ---------- */
+function openPin(){
+  $('pinMsg').textContent='';S.pin=$('pin').value.trim();
+  api({action:'events'}).then(function(r){
+    if(!r.ok){$('pinMsg').textContent=r.error==='pin'?'Wrong PIN':'Error: '+r.error;return;}
+    store('pin',S.pin);renderEvents(r.events);show('sEvents');
+  },function(e){$('pinMsg').textContent='Could not reach the sheet: '+e.message;});
+}
+$('pinGo').onclick=openPin;$('pin').onkeydown=function(e){if(e.key==='Enter')openPin();};
+$('lockBtn').onclick=function(e){e.preventDefault();store('pin','');S.pin='';$('pin').value='';show('sPin');};
+$('refreshEv').onclick=loadEvents;
+function loadEvents(){api({action:'events'}).then(function(r){if(r.ok)renderEvents(r.events);});}
+function ymd(d){return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+function isCurrent(date){ // a show stays "current" until 6am the morning after
+  var now=new Date(),cut=new Date(now.getTime()-6*3600*1000);
+  return String(date).slice(0,10)>=ymd(cut);
+}
+function renderEvents(evs){
+  S.events=evs||[];
+  var sorted=S.events.slice().sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
+  var now=sorted.filter(function(e){return isCurrent(e.date);}),old=sorted.filter(function(e){return !isCurrent(e.date);}).reverse();
+  function btn(e){var test=/^test-/.test(e.event_id);
+    return '<button class="ev" data-id="'+esc(e.event_id)+'"><span><b>'+esc(e.name)+(test?'<span class="tag">TEST</span>':'')+'</b><span class="small muted">'+esc(e.label||e.date)+'</span></span><span>›</span></button>';}
+  $('evNow').innerHTML=now.length?now.map(btn).join(''):'<p class="muted">No shows coming up. New TicketsCandy orders appear here within 10 minutes.</p>';
+  $('evOld').innerHTML=old.length?old.map(btn).join(''):'<p class="muted small">Shows move here at 6am the morning after.</p>';
+  Array.prototype.forEach.call(document.querySelectorAll('.ev'),function(b){b.onclick=function(){openEvent(b.getAttribute('data-id'));};});
+}
+
+/* ---------- door ---------- */
+function openEvent(id){
+  S.ev=S.events.filter(function(e){return e.event_id===id;})[0]||{event_id:id,name:id};
+  store('lastEvent',id);
+  S.pending=store('pending.'+id)||[];S.server=[];S.att=[];S.lastMine=[];
+  $('evName').textContent=S.ev.name;$('evLabel').textContent=S.ev.label||S.ev.date||'';
+  $('testCodes').hidden=!/^test-/.test(id);$('codesWrap').hidden=true;
+  $('res').className='';$('list').innerHTML='<p class="muted">Loading list…</p>';
+  show('sDoor');render();pull();
+}
+$('backBtn').onclick=function(){stopCam();S.ev=null;loadEvents();show('sEvents');};
+
+function pull(){
+  if(!S.ev)return;var id=S.ev.event_id;
+  return api({action:'load',event:id}).then(function(r){
+    if(!r.ok||!S.ev||S.ev.event_id!==id)return;
+    S.att=r.attendees||[];S.server=r.checkins||[];
+    if(r.event){S.ev.name=r.event.name||S.ev.name;}
+    render();setSync();
+  },function(){setSync(true);});
+}
+function push(){
+  if(!S.ev||!S.pending.length||S.busy)return;S.busy=true;setSync();
+  var batch=S.pending.slice(0,50),id=S.ev.event_id;
+  api({action:'sync',ops:batch}).then(function(r){
+    S.busy=false;
+    if(r.ok){var done={};(r.saved||[]).forEach(function(u){done[u]=1;});
+      batch.forEach(function(o){if(done[o.uid])S.server.push(o);});
+      S.pending=S.pending.filter(function(o){return !done[o.uid];});store('pending.'+id,S.pending);}
+    setSync(!r.ok);if(S.pending.length)push();
+  },function(){S.busy=false;setSync(true);});
+}
+function setSync(err){
+  var n=S.pending.length,el=$('syncTxt');
+  el.innerHTML=err?'<span class="dot err"></span>Offline · '+n+' waiting':n?'<span class="dot wait"></span>Saving '+n:'<span class="dot"></span>Saved';
+}
+setInterval(push,4000);
+setInterval(function(){if(S.ev&&!document.hidden)pull();},15000);
+window.addEventListener('online',push);
+
+function allOps(){var seen={},a=[];S.server.concat(S.pending).forEach(function(o){if(!seen[o.uid]){seen[o.uid]=1;a.push(o);}});return a;}
+function live(){var ops=allOps(),undone={};ops.forEach(function(o){if(o.type==='undo')undone[o.ref]=1;});return ops.filter(function(o){return o.type==='in'&&!undone[o.uid];});}
+function admits(){var m={};live().forEach(function(o){var k=String(o.order_id||o.order||'');if(k)m[k]=(m[k]||0)+1;});return m;}
+function qtyOf(a){return Number(a.qty)||0;}
+function surname(n){var p=String(n||'').trim().split(/\s+/);return (p[p.length-1]||'').toLowerCase()+' '+p.join(' ').toLowerCase();}
+
+function render(){
+  if(!S.ev)return;
+  var m=admits(),sold=S.att.reduce(function(s,a){return s+qtyOf(a);},0),inn=live().length;
+  $('cnt').innerHTML=inn+' <small>/ '+sold+' in</small>';
+  var list=S.att.filter(function(a){return qtyOf(a)>0;}).sort(function(a,b){return surname(a.name).localeCompare(surname(b.name));});
+  var f=S.filter,typed=$('q').value.trim().toLowerCase();
+  if(f==='in')list=list.filter(function(a){return m[a.order_id];});
+  if(f==='out')list=list.filter(function(a){return (m[a.order_id]||0)<qtyOf(a);});
+  if(typed.length>=2){list=list.filter(function(a){return String(a.name).toLowerCase().indexOf(typed)>=0||String(a.order_id).toLowerCase().indexOf(typed)>=0;});}
+  $('list').innerHTML=list.length?list.map(function(a){var n=m[a.order_id]||0,q=qtyOf(a);
+    return '<div class="p" data-o="'+esc(a.order_id)+'"><div><div class="n">'+esc(a.name||'(no name)')+'</div><div class="o">'+esc(a.order_id)+'</div></div><div class="pill '+(n>=q?'full':n?'part':'')+'">'+n+'/'+q+'</div></div>';}).join(''):'<p class="muted">'+(S.att.length?'Nobody matches.':'No orders on this list yet.')+'</p>';
+  Array.prototype.forEach.call(document.querySelectorAll('.p'),function(r){r.onclick=function(){person(r.getAttribute('data-o'));};});
+}
+Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){b.onclick=function(){S.filter=b.getAttribute('data-f');Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(x){x.classList.toggle('on',x===b);});render();};});
+
+function add(order,code,type,ref){
+  var o={uid:uid(),time:new Date().toISOString(),event:S.ev.event_id,event_id:S.ev.event_id,order:order||'',order_id:order||'',type:type||'in',code:code||'',device:S.device,ref:ref||''};
+  S.pending.push(o);store('pending.'+S.ev.event_id,S.pending);
+  if(o.type==='in'){S.lastMine.push(o.uid);}
+  render();setSync();setTimeout(push,50);return o;
+}
+function find(text){
+  var t=String(text||'').toUpperCase().trim();if(!t)return null;
+  var hit=S.att.filter(function(a){var id=String(a.order_id).toUpperCase();return id.length>=4&&t.indexOf(id)>=0;})[0];
+  if(hit)return{a:hit,code:String(text).slice(0,200)};
+  var nums=t.match(/\d{4,}/g)||[];
+  for(var i=0;i<nums.length;i++){var n=nums[i];
+    var h=S.att.filter(function(a){return String(a.tickets||'').split(',').indexOf(n)>=0;})[0];
+    if(h)return{a:h,code:'T:'+n};}
+  return null;
+}
+/* ---------- sound, vibrate, flash ---------- */
+var SND={sound:store('sound')!==false,buzz:store('buzz')!==false},AC=null,hap=null;
+function ac(){try{if(!AC){var C=window.AudioContext||window.webkitAudioContext;if(!C)return null;AC=new C();}if(AC.state==='suspended')AC.resume();}catch(e){return null;}return AC;}
+function unlock(){ // phones only allow sound after a tap, so wake the audio on the first touch
+  try{if(navigator.audioSession)navigator.audioSession.type='playback';}catch(e){}
+  var c=ac();if(!c)return;try{var b=c.createBuffer(1,1,22050),s=c.createBufferSource();s.buffer=b;s.connect(c.destination);s.start(0);}catch(e){}
+}
+document.addEventListener('touchend',unlock,{passive:true});document.addEventListener('click',unlock);
+function tone(c,f,t0,d,type,vol){var t=c.currentTime+t0,o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.setValueAtTime(f,t);
+  g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+0.01);g.gain.exponentialRampToValueAtTime(0.0001,t+d);
+  o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+d+0.03);}
+function sound(kind){if(!SND.sound)return;var c=ac();if(!c)return;try{
+  if(kind==='ok'){tone(c,988,0,0.12,'triangle',0.5);tone(c,1319,0.11,0.25,'triangle',0.5);}          // bright up-chime
+  else if(kind==='warn'){tone(c,660,0,0.12,'square',0.22);tone(c,660,0.2,0.12,'square',0.22);}      // two flat beeps
+  else{tone(c,160,0,0.5,'sawtooth',0.4);tone(c,151,0,0.5,'square',0.2);}                            // low buzz
+}catch(e){}}
+function iosTap(){try{ // iPhone has no vibrate API; Safari 18+ gives a haptic tick when a switch toggles
+  if(!hap){hap=document.createElement('label');hap.setAttribute('aria-hidden','true');hap.style.cssText='position:fixed;left:-200px;top:0;opacity:0';
+    var i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');i.tabIndex=-1;hap.appendChild(i);document.body.appendChild(hap);}
+  hap.click();}catch(e){}}
+function buzz(kind){if(!SND.buzz)return;
+  if(navigator.vibrate){navigator.vibrate(kind==='ok'?[70]:kind==='warn'?[90,70,90]:[300,90,300]);return;}
+  iosTap();if(kind!=='ok')setTimeout(iosTap,170);if(kind==='bad')setTimeout(iosTap,340);}
+function flash(kind){var f=$('flash');if(!f)return;f.className='';void f.offsetWidth;f.className='on '+kind;}
+function beep(ok,kind){kind=kind||(ok?'ok':'bad');sound(kind);buzz(kind);flash(kind);}
+function sndUi(){var a=SND.sound?'Sound on':'Sound off';$('sndBtn').textContent=a;$('sndBtn2').textContent=a;$('buzzBtn').textContent=SND.buzz?'Vibrate on':'Vibrate off';
+  $('sndBtn2').style.opacity=SND.sound?1:.55;}
+$('sndBtn').onclick=$('sndBtn2').onclick=function(){SND.sound=!SND.sound;store('sound',SND.sound);sndUi();if(SND.sound){unlock();sound('ok');}};
+$('buzzBtn').onclick=function(){SND.buzz=!SND.buzz;store('buzz',SND.buzz);sndUi();if(SND.buzz)buzz('ok');};
+$('testSnd').onclick=function(){unlock();beep(true);setTimeout(function(){beep(false,'warn');},800);setTimeout(function(){beep(false,'bad');},1600);};
+sndUi();
+
+function result(cls,big,name,acts){
+  var r=$('res');r.className='show '+cls;
+  r.innerHTML='<div class="big">'+big+'</div>'+(name?'<div class="nm">'+name+'</div>':'')+'<div class="acts"></div>';
+  (acts||[]).forEach(function(a){var b=document.createElement('button');b.textContent=a[0];b.onclick=a[1];r.querySelector('.acts').appendChild(b);});
+}
+function handle(text){
+  if(!S.ev)return;
+  var f=find(text);
+  if(!f){
+    var num=(String(text).match(/\d{4,}/)||[])[0];
+    beep(false);
+    result('bad','NOT ON LIST',esc(String(text).slice(0,60)),[
+      ['Find their name',function(){assign(num?'T:'+num:String(text).slice(0,200));}],
+      ['Let in anyway',function(){add('',String(text).slice(0,200));result('warn','Let in (not on list)','');}]
+    ]);return;
+  }
+  var a=f.a,n=admits()[a.order_id]||0,q=qtyOf(a);
+  if(n<q){add(a.order_id,f.code);beep(true);result('ok','ADMIT '+(n+1)+' of '+q,esc(a.name),q>1&&n+1<q?[['Admit another from this order',function(){handle(text);}]]:[]);}
+  else{beep(false,'warn');result('warn','ALREADY IN ('+n+'/'+q+')',esc(a.name),[['Admit 1 more',function(){add(a.order_id,f.code);result('ok','ADMITTED EXTRA',esc(a.name));}]]);}
+}
+function assign(code){
+  var ins=$('q');ins.value='';ins.placeholder='Type their name, then tap them';ins.focus();
+  S.assignCode=code;S.filter='out';render();
+  result('warn','Tap their name below','to admit them with this code');
+}
+function person(order){
+  var a=S.att.filter(function(x){return String(x.order_id)===String(order);})[0];if(!a)return;
+  if(S.assignCode){var c=S.assignCode;S.assignCode=null;$('q').placeholder='Order ID, ticket no. or name';var n0=admits()[a.order_id]||0;add(a.order_id,c);beep(true);result(n0<qtyOf(a)?'ok':'warn',n0<qtyOf(a)?'ADMIT '+(n0+1)+' of '+qtyOf(a):'ADMITTED EXTRA',esc(a.name));return;}
+  var n=admits()[a.order_id]||0,q=qtyOf(a),mine=live().filter(function(o){return String(o.order_id||o.order)===String(a.order_id);});
+  var sh=$('sheet');sh.hidden=false;
+  sh.innerHTML='<div style="font-size:22px;font-weight:800">'+esc(a.name)+'</div><div class="muted small">'+esc(a.order_id)+(a.email?' · '+esc(a.email):'')+'</div><div class="count" style="margin:10px 0">'+n+' <small>of '+q+' in</small></div><div class="row"><button class="ok" id="shIn">'+(n<q?'Admit 1':'Admit 1 more')+'</button><button id="shUndo"'+(mine.length?'':' disabled style="opacity:.4"')+'>Undo 1</button></div><p><button id="shClose" style="width:100%">Close</button></p>';
+  $('shIn').onclick=function(){add(a.order_id,'manual');sh.hidden=true;beep(true);result('ok','ADMIT '+(n+1)+' of '+q,esc(a.name));};
+  $('shUndo').onclick=function(){if(!mine.length)return;add(a.order_id,'','undo',mine[mine.length-1].uid);sh.hidden=true;result('warn','Undone','1 removed for '+esc(a.name));};
+  $('shClose').onclick=function(){sh.hidden=true;};
+}
+$('undoLast').onclick=function(){
+  var l=live().map(function(o){return o.uid;});
+  while(S.lastMine.length&&l.indexOf(S.lastMine[S.lastMine.length-1])<0)S.lastMine.pop();
+  var u=S.lastMine.pop();if(!u){result('warn','Nothing to undo','');return;}
+  var o=allOps().filter(function(x){return x.uid===u;})[0];add(o.order_id||o.order,'','undo',u);result('warn','Last scan undone','');
+};
+$('qGo').onclick=function(){var v=$('q').value.trim();if(!v)return;
+  if(find(v)||(/\d/.test(v)&&!/\s/.test(v))){handle(v);$('q').value='';}render();};
+$('q').onkeydown=function(e){if(e.key==='Enter')$('qGo').onclick();};
+$('q').oninput=function(){render();};
+
+/* ---------- scanning ---------- */
+var det=null;try{if('BarcodeDetector' in window)det=new BarcodeDetector({formats:['qr_code']});}catch(e){det=null;}
+function decodeCanvas(cv){
+  var ctx=cv.getContext('2d',{willReadFrequently:true}),d=ctx.getImageData(0,0,cv.width,cv.height);
+  if(!window.jsQR)return null;var r=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});return r?r.data:null;
+}
+function decodeSource(src,w,h){
+  if(det)return det.detect(src).then(function(c){return c.length?c[0].rawValue:fallback();},fallback);
+  return Promise.resolve(fallback());
+  function fallback(){var sizes=[1400,900,600];for(var i=0;i<sizes.length;i++){var s=Math.min(1,sizes[i]/Math.max(w,h)),cv=document.createElement('canvas');cv.width=Math.round(w*s);cv.height=Math.round(h*s);cv.getContext('2d').drawImage(src,0,0,cv.width,cv.height);var v=decodeCanvas(cv);if(v)return v;}return null;}
+}
+$('photoBtn').onclick=function(){$('photo').value='';$('photo').click();};
+$('photo').onchange=function(){
+  var f=this.files&&this.files[0];if(!f)return;result('warn','Reading photo…','');
+  var img=new Image();img.onload=function(){decodeSource(img,img.naturalWidth,img.naturalHeight).then(function(v){URL.revokeObjectURL(img.src);if(v)handle(v);else{beep(false);result('bad','No QR code found','Try again closer, or type the order ID');}});};
+  img.src=URL.createObjectURL(f);
+};
+var stream=null,loop=null;
+function stopCam(){S.camOn=false;if(loop)clearTimeout(loop);if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}$('cam').classList.remove('on');$('camBtn').textContent='Live scan';}
+$('camBtn').onclick=function(){
+  if(S.camOn){stopCam();return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){result('bad','Live camera not available here','Use Photo scan instead');return;}
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false}).then(function(s){
+    stream=s;var v=$('vid');v.srcObject=s;v.play();S.camOn=true;$('cam').classList.add('on');$('camBtn').textContent='Stop camera';tick();
+  },function(e){result('bad','Live camera blocked','Use Photo scan instead ('+esc(e.name||e)+')');});
+};
+function tick(){
+  if(!S.camOn)return;var v=$('vid');
+  if(v.readyState>=2&&Date.now()>S.pause){
+    decodeSource(v,v.videoWidth,v.videoHeight).then(function(val){if(val&&S.camOn){S.pause=Date.now()+2200;handle(val);}loop=setTimeout(tick,180);});
+  }else loop=setTimeout(tick,200);
+}
+
+/* ---------- end of night ---------- */
+var EXEC_URL='https://script.google.com/macros/s/AKfycbxjcYGYq24dP0wuiNrf9818OSywLxVpwIi__ZjJOwJL2ptMOyLC9w0irRqiyU8Z4G8/exec';
+$('printBtn').onclick=function(){if(!S.ev)return;window.open(EXEC_URL+'?action=print&event='+encodeURIComponent(S.ev.event_id)+'&pin='+encodeURIComponent(S.pin),'_blank');};
+function eon(action,label){
+  if(!S.ev)return;var m=$('eonMsg');
+  if(S.eonArm!==action){S.eonArm=action;m.textContent='Tap "'+label+'" again to confirm.';setTimeout(function(){if(S.eonArm===action){S.eonArm=null;m.textContent='';}},6000);return;}
+  S.eonArm=null;m.textContent='Sending…';
+  api({action:action,event:S.ev.event_id}).then(function(r){m.textContent=r.ok?'Sent to AJ.':'Failed: '+r.error;},function(e){m.textContent='Failed: '+e.message;});
+}
+$('listBtn').onclick=function(){eon('sendlist','Email print list');};
+$('reportBtn').onclick=function(){eon('report','Email results to AJ now');};
+
+/* ---------- test codes ---------- */
+$('testCodes').onclick=function(){
+  var w=$('codesWrap');if(!w.hidden){w.hidden=true;return;}
+  if(!window.qrcode){$('codes').innerHTML='QR library did not load.';w.hidden=false;return;}
+  var items=S.att.map(function(a){return{t:'TWM-TEST-ORDER-'+a.order_id,l:a.name+' · order '+a.order_id+' ('+a.qty+')'};});
+  items.push({t:'SOMETHING-NOT-ON-THE-LIST-12345',l:'Not on list (should go red)'});
+  var tk=S.att.filter(function(a){return a.tickets;})[0];if(tk)items.push({t:'TICKET '+String(tk.tickets).split(',')[0],l:'Ticket number only ('+tk.name+')'});
+  $('codes').innerHTML='<b>Test codes</b> · open this on a second screen and scan with the door phone<br>'+items.map(function(x){var q=qrcode(0,'M');q.addData(x.t);q.make();return '<div class="q">'+q.createImgTag(6,8)+'<div>'+esc(x.l)+'</div></div>';}).join('');
+  w.hidden=false;
+};
+
+/* ---------- start ---------- */
+if(S.pin){api({action:'events'}).then(function(r){if(!r.ok){show('sPin');return;}renderEvents(r.events);show('sEvents');var last=store('lastEvent');if(last&&S.events.some(function(e){return e.event_id===last&&isCurrent(e.date);}))openEvent(last);},function(){show('sPin');$('pinMsg').textContent='Could not reach the sheet.';});}
+else show('sPin');
+})();
+</script>
+</body></html>
