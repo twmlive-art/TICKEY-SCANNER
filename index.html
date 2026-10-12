@@ -111,6 +111,7 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
       <input id="q" placeholder="Order ID, ticket no. or name" autocomplete="off" autocapitalize="characters" enterkeyhint="go">
       <button class="no" id="qGo">Check</button>
     </div>
+    <div class="row" style="margin-top:6px"><button class="sm" id="impBtn">Import new sales now</button></div>
   </div>
   <div id="res"></div>
   <div class="tabs"><button data-f="all" class="on">All</button><button data-f="out">Not in</button><button data-f="in">In</button></div>
@@ -337,6 +338,11 @@ $('qGo').onclick=function(){var v=$('q').value.trim();if(!v)return;
   if(find(v)||(/\d/.test(v)&&!/\s/.test(v))){handle(v);$('q').value='';}render();};
 $('q').onkeydown=function(e){if(e.key==='Enter')$('qGo').onclick();};
 $('q').oninput=function(){render();};
+
+/* ---------- import now (v4.3.3) ---------- */
+$('impBtn').onclick=function(){var b=$('impBtn');if(b.disabled)return;b.disabled=true;b.textContent='Checking TicketsCandy...';
+  api({action:'importnow'}).then(function(r){b.textContent=r.ok?(r.throttled?'Just checked, try again in 20s':(r.added?'Done, '+r.added+' new order(s) in':'No new orders yet')):'Failed: '+r.error;return pull();},function(e){b.textContent='Failed: '+e.message;})
+  .then(function(){setTimeout(function(){b.disabled=false;b.textContent='Import new sales now';},5000);});};
 
 /* ---------- scanning ---------- */
 var det=null;try{if('BarcodeDetector' in window)det=new BarcodeDetector({formats:['qr_code']});}catch(e){det=null;}
