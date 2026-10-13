@@ -59,6 +59,7 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
 #flash.on{animation:fl .6s ease-out}#flash.ok{background:var(--ok)}#flash.warn{background:var(--warn)}#flash.bad{background:var(--bad)}
 @keyframes fl{0%{opacity:.6}100%{opacity:0}}
 :root{--bg:#0e0d0c;--accent:#e0a526;--on-accent:#111111;--panel:#1f1e1d;--panel2:#2d2c2c;--line:#3e3d3d;--display:'Oswald',Impact,'Arial Narrow Bold',system-ui,sans-serif}
+.btnlink{display:block;text-align:center;font-weight:700;border-radius:12px;padding:14px 16px;background:var(--accent);color:var(--on-accent,#fff);text-decoration:none}
 </style>
 </head><body>
 <div class="wrap">
@@ -84,6 +85,18 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
   <div class="card">
     <div class="snd"><button id="sndBtn">Sound on</button><button id="buzzBtn">Vibrate on</button><button id="testSnd">Test sounds</button></div>
     <p class="small muted" style="margin:10px 0 0">Tap Test sounds once at the start of the night. You should hear three different sounds: admit, already in, not on list. On iPhone, check the ringer switch is on and the volume is up.</p>
+  </div>
+  <h2>Update tickets</h2>
+  <div class="card">
+    <p class="small muted" style="margin:0 0 10px">Loads ticket numbers from TicketsCandy so QR scans show names. Do it on show day (about 4pm) and again if lots of late sales come in.</p>
+    <a class="btnlink" href="https://ticketscandy.com/dashboard/events" target="_blank" rel="noopener">1. Open TicketsCandy</a>
+    <p class="small" style="margin:10px 0 6px">2. Log in if asked, then tap your <b>Send to door</b> bookmark. It updates every show in the next 3 weeks and gives you a link back here.</p>
+    <details><summary class="small" style="cursor:pointer;color:var(--accent)">First time on this phone: set up the Send to door bookmark</summary>
+      <p class="small">iPhone (Safari): tap Copy below. Bookmark any page (Share, Add Bookmark) and call it Send to door. Then open Bookmarks, Edit, tap that bookmark and paste over the address. Laptop: drag this link to your bookmarks bar: <a id="tcBm" href="#" style="color:var(--accent)">Send to door</a></p>
+      <button id="tcCopy" class="sm" style="width:100%">Copy bookmark code</button>
+      <p id="tcMsg" class="small"></p>
+      <p class="small muted">The bookmark holds this phone's door PIN. If the PIN changes, make it again.</p>
+    </details>
   </div>
   <p class="small muted" style="margin-top:30px">Device: <span id="devName"></span> · <a href="#" id="lockBtn" style="color:var(--muted)">Lock (forget PIN)</a></p>
 </section>
@@ -174,7 +187,7 @@ function isCurrent(date){ // a show stays "current" until 6am the morning after
   return String(date).slice(0,10)>=ymd(cut);
 }
 function renderEvents(evs){
-  S.events=evs||[];
+  S.events=evs||[];setBm();
   var sorted=S.events.slice().sort(function(a,b){return String(a.date).localeCompare(String(b.date));});
   var now=sorted.filter(function(e){return isCurrent(e.date);}),old=sorted.filter(function(e){return !isCurrent(e.date);}).reverse();
   function btn(e){var test=/^test-/.test(e.event_id);
@@ -183,6 +196,44 @@ function renderEvents(evs){
   $('evOld').innerHTML=old.length?old.map(btn).join(''):'<p class="muted small">Shows move here at 6am the morning after.</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.ev'),function(b){b.onclick=function(){openEvent(b.getAttribute('data-id'));};});
 }
+
+/* ---------- Send to door bookmark (v4.3.5): runs on ticketscandy.com, sends ticket numbers to the sheet with the door PIN ---------- */
+async function tcSend(API,PIN,DOOR){
+  if(!/ticketscandy\.com$/.test(location.hostname)){alert('Open TicketsCandy (logged in) first, then tap Send to door.');return;}
+  var post=function(b){b.pin=PIN;return fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b)}).then(function(r){return r.json();});};
+  var box=document.createElement('div');box.style.cssText='position:fixed;left:10px;right:10px;top:10px;z-index:99999;background:#111;color:#fff;font:16px sans-serif;padding:16px;border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.5)';box.textContent='Sending tickets to the door...';document.body.appendChild(box);
+  try{
+    var ev=await post({action:'events'});
+    if(!ev.ok){box.textContent='Door PIN not accepted. Make the bookmark again from the door page.';return;}
+    var now=new Date();now.setHours(0,0,0,0);var from=new Date(now.getTime()-864e5),lim=new Date(now.getTime()+21*864e5);
+    var list=(ev.events||[]).filter(function(e){var d=new Date(String(e.date).slice(0,10)+'T12:00:00');return e.tc_event&&d>=from&&d<=lim;});
+    var msg=[];
+    for(var i=0;i<list.length;i++){var e=list[i],rows=[],page=1,total=0;
+      box.textContent='Reading '+(e.name||'')+'...';
+      while(true){
+        var h=await fetch('/events/'+e.tc_event+'/attendees?page='+page+'&per_page=200',{credentials:'include'}).then(function(r){return r.text();});
+        var d=new DOMParser().parseFromString(h,'text/html');
+        if(d.querySelector('input[type=password]')){box.textContent='Log in to TicketsCandy first, then tap Send to door again.';return;}
+        var trs=[].slice.call(d.querySelectorAll('tr')).filter(function(r){return r.querySelector('a[data-href]');});
+        trs.forEach(function(r){var td=r.querySelectorAll('td');var ids=String(r.querySelector('a[data-href]').getAttribute('data-href')).match(/\d{6,}/g)||[];var o=(td[0]?td[0].textContent:'').trim().split(/\s+/)[0];var n=(td[1]?td[1].textContent:'').replace(/\s+/g,' ').trim();var ty=(td[3]?td[3].textContent:'').trim();if(o&&ids.length&&!/addon|product|donation/i.test(ty))rows.push({o:o,n:n,t:ids[ids.length-1]});});
+        total=+((d.body.textContent.match(/of\s+(\d+)/)||[])[1])||total;
+        if(trs.length<200||page>=10)break;page++;
+      }
+      if(!rows.length){msg.push(e.name+': no tickets yet');continue;}
+      var r=await post({action:'tcpush',events:[{tc:String(e.tc_event),name:e.name,date:String(e.date).slice(0,10),sold:total,complete:false,rows:rows}]});
+      msg.push(e.name+': '+(r.ok?rows.length+' tickets':'failed ('+r.error+')'));
+    }
+    box.innerHTML='';var p=document.createElement('div');p.style.whiteSpace='pre-line';p.textContent='Sent to door:\n'+(msg.join('\n')||'No shows in the next 3 weeks');box.appendChild(p);
+    var a=document.createElement('a');a.href=DOOR;a.textContent='Back to the door page';a.style.cssText='display:block;margin-top:12px;padding:12px;background:#e0a526;color:#111;text-align:center;border-radius:10px;font-weight:700;text-decoration:none';box.appendChild(a);
+  }catch(err){box.textContent='Something went wrong: '+err;}
+}
+function bmCode(){return 'javascript:'+encodeURIComponent('('+tcSend.toString()+')('+JSON.stringify(API_URL)+','+JSON.stringify(S.pin)+','+JSON.stringify(location.origin+location.pathname)+');void 0');}
+function setBm(){var a=$('tcBm');if(a&&S.pin)a.href=bmCode();}
+$('tcCopy').onclick=function(){var c=bmCode(),m=$('tcMsg');
+  function done(){m.textContent='Copied. Now paste it as the address of your Send to door bookmark.';}
+  if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(c).then(done,function(){fallback();});}else fallback();
+  function fallback(){var t=document.createElement('textarea');t.value=c;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){m.textContent='Could not copy. Long-press to copy instead.';}t.remove();}
+};
 
 /* ---------- door ---------- */
 function openEvent(id){
