@@ -3,7 +3,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>TWM Door</title>
-<!-- TWM Door page v4.2-gh. Hosted outside Google so Live scan can use the camera. Data lives in the TWM Live Door & Customers sheet via the /exec link. To change the link, edit API_URL and EXEC_URL below. -->
+<!-- TWM Door page v4.6-gh (8 Nov 2026: TicketsCandy QR fix restored, zxing reader, guest lists, PDF door list, door notes and ratings). Based on v4.2-gh + 13 Oct bookmark build. Hosted outside Google so Live scan can use the camera. Data lives in the TWM Live Door & Customers sheet via the /exec link. To change the link, edit API_URL and EXEC_URL below. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="TWM Door">
@@ -37,7 +37,7 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
 #res .acts button{background:rgba(0,0,0,.25);color:inherit}
 #cam{position:relative;border-radius:14px;overflow:hidden;background:#000;margin-top:10px;display:none}
 #cam.on{display:block}#cam video{width:100%;display:block;max-height:46vh;object-fit:cover}
-#cam .frame{position:absolute;inset:18% 18%;border:3px solid rgba(255,255,255,.8);border-radius:14px;pointer-events:none}
+#cam .frame{position:absolute;left:50%;top:50%;width:min(62%,46vh);aspect-ratio:1;transform:translate(-50%,-50%);border:3px solid rgba(255,255,255,.8);border-radius:14px;pointer-events:none}
 .tabs{display:flex;gap:6px;margin:12px 0 6px}.tabs button{flex:1;padding:10px 6px;font-size:14px}.tabs button.on{background:var(--accent);color:var(--on-accent,#fff)}
 .p{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--line)}
 .p .n{font-weight:700}.p .o{font-size:12px;color:var(--muted)}
@@ -60,6 +60,13 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
 @keyframes fl{0%{opacity:.6}100%{opacity:0}}
 :root{--bg:#0e0d0c;--accent:#e0a526;--on-accent:#111111;--panel:#1f1e1d;--panel2:#2d2c2c;--line:#3e3d3d;--display:'Oswald',Impact,'Arial Narrow Bold',system-ui,sans-serif}
 .btnlink{display:block;text-align:center;font-weight:700;border-radius:12px;padding:14px 16px;background:var(--accent);color:var(--on-accent,#fff);text-decoration:none}
+.gt{display:inline-block;font-size:11px;font-weight:800;background:#7b5cff;color:#fff;border-radius:6px;padding:1px 6px;margin-left:6px;vertical-align:middle}
+textarea,select{font:inherit;font-size:16px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+textarea{min-height:90px;resize:vertical}
+.gl{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.gl button{padding:6px 10px;font-size:13px}
+.lnk{word-break:break-all;background:var(--panel2);border-radius:10px;padding:10px;font-size:13px;margin:8px 0}
+.stars{font-size:22px;letter-spacing:2px;color:var(--accent)}
 </style>
 </head><body>
 <div class="wrap">
@@ -98,7 +105,14 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
       <p class="small muted">The bookmark holds this phone's door PIN. If the PIN changes, make it again.</p>
     </details>
   </div>
-  <p class="small muted" style="margin-top:30px">Device: <span id="devName"></span> · <a href="#" id="lockBtn" style="color:var(--muted)">Lock (forget PIN)</a></p>
+  <h2>Feedback about the app</h2>
+  <div class="card">
+    <p class="small muted" style="margin:0 0 8px">Something not working, or an idea? Send it straight to AJ.</p>
+    <textarea id="fbText" placeholder="What happened? Which show? What phone?"></textarea>
+    <div class="row" style="margin-top:8px"><input id="fbWho" placeholder="Your name (optional)"><button class="pri no" id="fbSend">Send</button></div>
+    <p id="fbMsg" class="small"></p>
+  </div>
+  <p class="small muted" style="margin-top:30px">Device: <span id="devName"></span> · <span id="scanInfo">Reader: loading</span> · <a href="#" id="lockBtn" style="color:var(--muted)">Lock (forget PIN)</a></p>
 </section>
 
 <!-- DOOR -->
@@ -119,7 +133,8 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
       <button id="photoBtn">Photo scan</button>
       <input id="photo" type="file" accept="image/*" capture="environment" hidden>
     </div>
-    <div id="cam"><video id="vid" playsinline muted></video><div class="frame"></div></div>
+    <div id="cam"><video id="vid" playsinline muted autoplay></video><div class="frame"></div><button id="torchBtn" class="sm" hidden style="position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.55)">Light on</button></div>
+    <p id="camHint" class="small muted" hidden style="margin:6px 0 0">Not reading? Hold 15 to 25cm away, ask them to turn screen brightness up, or tap Photo scan.</p>
     <div class="row" style="margin-top:8px">
       <input id="q" placeholder="Order ID, ticket no. or name" autocomplete="off" autocapitalize="characters" enterkeyhint="go">
       <button class="no" id="qGo">Check</button>
@@ -133,13 +148,37 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
     <button id="undoLast" class="sm">Undo last scan</button>
     <button id="testCodes" class="sm" hidden>Test QR codes</button>
   </div>
+  <h2>Guest list</h2>
+  <div class="card">
+    <div id="gList"><p class="muted small">No guests on this show yet.</p></div>
+    <details style="margin-top:10px"><summary class="small" style="cursor:pointer;color:var(--accent)">Make a guest list link for a band</summary>
+      <p class="small muted">The band opens the link and types their names (up to the number you set). Names show here marked GUEST and are checked in like tickets. Sending the link again lets them change their list until show day ends.</p>
+      <div class="row"><input id="gBand" placeholder="Band name"><input id="gCap" type="number" inputmode="numeric" min="1" max="50" value="4" style="flex:0 0 80px"></div>
+      <p><button id="gMake" class="pri" style="width:100%">Make link</button></p>
+      <div id="gOut"></div>
+    </details>
+    <details style="margin-top:6px"><summary class="small" style="cursor:pointer;color:var(--accent)">Add a guest at the door</summary>
+      <div class="row" style="margin-top:8px"><input id="gdName" placeholder="Guest name"><input id="gdBand" placeholder="Guest of (band)"></div>
+      <p><button id="gdAdd" style="width:100%">Add and let in</button></p>
+    </details>
+    <p id="gMsg" class="small"></p>
+  </div>
   <h2>End of night</h2>
   <div class="card">
-    <div class="row"><button id="printBtn" class="sm">Open print list</button><button id="listBtn" class="sm">Email print list (PDF)</button></div>
+    <div class="row"><button id="printBtn" class="sm">Door list PDF</button><button id="listBtn" class="sm">Email print list (PDF)</button></div>
     <div class="row" style="margin-top:8px"><button id="reportBtn" class="sm pri">Email results to AJ now</button></div>
     <p class="small muted" style="margin:10px 0 0">Results go out by themselves just after midnight on the night of the show. Use the button if you want them sooner.</p>
     <p id="eonMsg" class="small" style="margin:6px 0 0"></p>
   </div>
+  <h2>Door notes</h2>
+  <div class="card">
+    <select id="nKind"><option>End of night</option><option>Problem</option><option>Incident</option><option>Idea</option></select>
+    <textarea id="nText" style="margin-top:8px" placeholder="How did the night go? Queues, problems with tickets, anything AJ should know"></textarea>
+    <div class="row" style="margin-top:8px"><input id="nWho" placeholder="Your name"><button class="pri no" id="nSend">Send to AJ</button></div>
+    <p id="nMsg" class="small"></p>
+  </div>
+  <h2>Customer ratings</h2>
+  <div class="card"><div id="rOut"><p class="small muted" style="margin:0">Ratings come from the thank-you emails the morning after.</p></div><p><button id="rLoad" class="sm" style="width:100%">Show ratings and notes for this show</button></p></div>
   <div id="codesWrap" hidden style="margin-top:12px"><div id="codes"></div></div>
 </section>
 </div>
@@ -147,8 +186,11 @@ h1{font-family:var(--display,inherit);font-weight:700;font-size:26px;letter-spac
 <div id="sheet" hidden></div>
 <div id="flash"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/barcode-detector@3.0.8/dist/iife/ponyfill.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 <script>
 (function(){
 var $=function(id){return document.getElementById(id);};
@@ -239,7 +281,7 @@ $('tcCopy').onclick=function(){var c=bmCode(),m=$('tcMsg');
 function openEvent(id){
   S.ev=S.events.filter(function(e){return e.event_id===id;})[0]||{event_id:id,name:id};
   store('lastEvent',id);
-  S.pending=store('pending.'+id)||[];S.server=[];S.att=[];S.lastMine=[];
+  S.pending=store('pending.'+id)||[];S.server=[];S.att=[];S.guests=[];S.lastMine=[];$('rOut').innerHTML='<p class="small muted" style="margin:0">Ratings come from the thank-you emails the morning after.</p>';$('gOut').innerHTML='';
   $('evName').textContent=S.ev.name;$('evLabel').textContent=S.ev.label||S.ev.date||'';
   $('testCodes').hidden=!/^test-/.test(id);$('codesWrap').hidden=true;
   $('res').className='';$('list').innerHTML='<p class="muted">Loading list…</p>';
@@ -249,9 +291,11 @@ $('backBtn').onclick=function(){stopCam();S.ev=null;loadEvents();show('sEvents')
 
 function pull(){
   if(!S.ev)return;var id=S.ev.event_id;
-  return api({action:'load',event:id}).then(function(r){
+  return Promise.all([api({action:'load',event:id}),api({action:'guests',event:id}).catch(function(){return {ok:false};})]).then(function(rr){
+    var r=rr[0],g=rr[1];
     if(!r.ok||!S.ev||S.ev.event_id!==id)return;
-    S.att=r.attendees||[];S.server=r.checkins||[];
+    if(g&&g.ok)S.guests=g.guests||[];
+    S.att=(r.attendees||[]).concat((S.guests||[]).map(function(x){return {order_id:x.id,name:x.name,qty:1,guest:x.band||'Guest',tickets:''};}));S.server=r.checkins||[];renderGuests();
     if(r.event){S.ev.name=r.event.name||S.ev.name;}
     render();setSync();
   },function(){setSync(true);});
@@ -284,15 +328,17 @@ function surname(n){var p=String(n||'').trim().split(/\s+/);return (p[p.length-1
 function render(){
   if(!S.ev)return;
   var m=admits(),sold=S.att.reduce(function(s,a){return s+qtyOf(a);},0),inn=live().length;
-  $('cnt').innerHTML=inn+' <small>/ '+sold+' in</small>';
+  var gIn=live().filter(function(o){return /^G-/.test(o.order_id||o.order||'');}).length,gAll=S.att.filter(function(a){return a.guest;}).length;
+  $('cnt').innerHTML=inn+' <small>/ '+sold+' in'+(gAll?' · '+gIn+'/'+gAll+' guests':'')+'</small>';
   var list=S.att.filter(function(a){return qtyOf(a)>0;}).sort(function(a,b){return surname(a.name).localeCompare(surname(b.name));});
   var f=S.filter,typed=$('q').value.trim().toLowerCase();
   if(f==='in')list=list.filter(function(a){return m[a.order_id];});
   if(f==='out')list=list.filter(function(a){return (m[a.order_id]||0)<qtyOf(a);});
-  if(typed.length>=2){list=list.filter(function(a){return String(a.name).toLowerCase().indexOf(typed)>=0||String(a.order_id).toLowerCase().indexOf(typed)>=0;});}
+  if(typed.length>=2){list=list.filter(function(a){return String(a.name).toLowerCase().indexOf(typed)>=0||String(a.order_id).toLowerCase().indexOf(typed)>=0||String(a.guest||'').toLowerCase().indexOf(typed)>=0;});}
   $('list').innerHTML=list.length?list.map(function(a){var n=m[a.order_id]||0,q=qtyOf(a);
-    return '<div class="p" data-o="'+esc(a.order_id)+'"><div><div class="n">'+esc(a.name||'(no name)')+'</div><div class="o">'+esc(a.order_id)+'</div></div><div class="pill '+(n>=q?'full':n?'part':'')+'">'+n+'/'+q+'</div></div>';}).join(''):'<p class="muted">'+(S.att.length?'Nobody matches.':'No orders on this list yet.')+'</p>';
+    return '<div class="p" data-o="'+esc(a.order_id)+'"><div><div class="n">'+esc(a.name||'(no name)')+(a.guest?'<span class="gt">GUEST</span>':'')+'</div><div class="o">'+(a.guest?'Guest of '+esc(a.guest):esc(a.order_id))+'</div></div><div class="pill '+(n>=q?'full':n?'part':'')+'">'+n+'/'+q+'</div></div>';}).join(''):'<p class="muted">'+(S.att.length?'Nobody matches.':'No orders on this list yet.')+'</p>';
   Array.prototype.forEach.call(document.querySelectorAll('.p'),function(r){r.onclick=function(){person(r.getAttribute('data-o'));};});
+  renderGuests();
 }
 Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(b){b.onclick=function(){S.filter=b.getAttribute('data-f');Array.prototype.forEach.call(document.querySelectorAll('.tabs button'),function(x){x.classList.toggle('on',x===b);});render();};});
 
@@ -302,14 +348,32 @@ function add(order,code,type,ref){
   if(o.type==='in'){S.lastMine.push(o.uid);}
   render();setSync();setTimeout(push,50);return o;
 }
+function tcInfo(text){ // TicketsCandy QR = https://ticketscandy.com/?event_id=20461&path=api%2Fqrc%2F&security_code=...&ticket_id=1974821
+  var s=String(text||'');try{s=decodeURIComponent(s);}catch(e){}
+  if(!/ticketscandy|ticket_id/i.test(s))return null;
+  var t=(s.match(/ticket_id\D{0,3}(\d{5,})/i)||[])[1],e=(s.match(/event_id\D{0,3}(\d+)/i)||[])[1];
+  return t?{ticket:t,event:e||''}:null;
+}
+function tix(a){ // ticket numbers on an order; also repairs lists Sheets turned into one big number (1941706,1941707 -> 19,417,061,941,707)
+  var s=String(a.tickets==null?'':a.tickets).trim();if(!s)return [];
+  var d=s.replace(/[,\s]/g,'');
+  if(/^\d+$/.test(d)&&d.length>7&&d.length%7===0&&(/^\d{1,3}(,\d{3})+$/.test(s)||/^\d+$/.test(s))){var o=[];for(var i=0;i<d.length;i+=7)o.push(d.slice(i,i+7));return o;}
+  return s.split(/[,;\s]+/).filter(Boolean);
+}
 function find(text){
   var t=String(text||'').toUpperCase().trim();if(!t)return null;
-  var hit=S.att.filter(function(a){var id=String(a.order_id).toUpperCase();return id.length>=4&&t.indexOf(id)>=0;})[0];
-  if(hit)return{a:hit,code:String(text).slice(0,200)};
-  var nums=t.match(/\d{4,}/g)||[];
+  var tc=tcInfo(text);
+  if(!tc){
+    var hit=S.att.filter(function(a){var id=String(a.order_id).toUpperCase();return id.length>=4&&!/^G-/.test(id)&&t.indexOf(id)>=0;})[0];
+    if(hit)return{a:hit,code:String(text).slice(0,200)};
+  }
+  var nums=tc?[tc.ticket]:(t.match(/\d{4,}/g)||[]);
   for(var i=0;i<nums.length;i++){var n=nums[i];
-    var h=S.att.filter(function(a){return String(a.tickets||'').split(',').indexOf(n)>=0;})[0];
-    if(h)return{a:h,code:'T:'+n};}
+    var h=S.att.filter(function(a){return tix(a).indexOf(n)>=0;})[0];
+    if(h)return{a:h,code:'T:'+n};
+    var learned=live().filter(function(o){return o.code==='T:'+n&&(o.order_id||o.order);})[0]; // ticket linked to a name earlier tonight
+    if(learned){var la=S.att.filter(function(a){return String(a.order_id)===String(learned.order_id||learned.order);})[0];if(la)return{a:la,code:'T:'+n};}
+  }
   return null;
 }
 /* ---------- sound, vibrate, flash ---------- */
@@ -349,9 +413,21 @@ function result(cls,big,name,acts){
   r.innerHTML='<div class="big">'+big+'</div>'+(name?'<div class="nm">'+name+'</div>':'')+'<div class="acts"></div>';
   (acts||[]).forEach(function(a){var b=document.createElement('button');b.textContent=a[0];b.onclick=a[1];r.querySelector('.acts').appendChild(b);});
 }
+function tm(iso){try{return new Date(iso).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});}catch(e){return '';}}
 function handle(text){
   if(!S.ev)return;
   var f=find(text);
+  var tc=tcInfo(text);
+  if(f&&/^T:/.test(f.code)){var dupe=live().filter(function(o){return String(o.code).replace(/\*$/,'')===f.code;})[0];
+    if(dupe){beep(false,'warn');result('warn','TICKET ALREADY USED','Ticket '+esc(f.code.slice(2))+' · '+esc(f.a.name)+' · scanned '+tm(dupe.time),[['Admit anyway',function(){add(f.a.order_id,f.code+'*');result('ok','ADMITTED EXTRA',esc(f.a.name));}]]);return;}}
+  if(!f&&tc){
+    var want=String(S.ev.tc_event||S.ev.tc||'');
+    if(want&&tc.event&&tc.event!==want){beep(false);result('bad','WRONG SHOW','TicketsCandy ticket '+esc(tc.ticket)+' is for a different event',[['Let in anyway',function(){add('','T:'+tc.ticket);result('warn','Let in (wrong show)','');}]]);return;}
+    var code='T:'+tc.ticket,prev=live().filter(function(o){return String(o.code).replace(/\*$/,'')===code;})[0];
+    if(prev){beep(false,'warn');result('warn','TICKET ALREADY USED','Ticket '+esc(tc.ticket)+' · scanned '+tm(prev.time),[['Admit anyway',function(){add('',code+'*');result('ok','ADMITTED EXTRA','');}]]);return;}
+    var o=add('',code);beep(true);
+    result('ok','ADMIT','Valid TicketsCandy ticket '+esc(tc.ticket),[['Add their name',function(){S.linkUid=o.uid;assign(code);}]]);return;
+  }
   if(!f){
     var num=(String(text).match(/\d{4,}/)||[])[0];
     beep(false);
@@ -361,7 +437,7 @@ function handle(text){
     ]);return;
   }
   var a=f.a,n=admits()[a.order_id]||0,q=qtyOf(a);
-  if(n<q){add(a.order_id,f.code);beep(true);result('ok','ADMIT '+(n+1)+' of '+q,esc(a.name),q>1&&n+1<q?[['Admit another from this order',function(){handle(text);}]]:[]);}
+  if(n<q){add(a.order_id,f.code);beep(true);result('ok','ADMIT '+(n+1)+' of '+q,esc(a.name),q>1&&n+1<q&&!/^T:/.test(f.code)?[['Admit another from this order',function(){handle(text);}]]:[]);}
   else{beep(false,'warn');result('warn','ALREADY IN ('+n+'/'+q+')',esc(a.name),[['Admit 1 more',function(){add(a.order_id,f.code);result('ok','ADMITTED EXTRA',esc(a.name));}]]);}
 }
 function assign(code){
@@ -371,7 +447,7 @@ function assign(code){
 }
 function person(order){
   var a=S.att.filter(function(x){return String(x.order_id)===String(order);})[0];if(!a)return;
-  if(S.assignCode){var c=S.assignCode;S.assignCode=null;$('q').placeholder='Order ID, ticket no. or name';var n0=admits()[a.order_id]||0;add(a.order_id,c);beep(true);result(n0<qtyOf(a)?'ok':'warn',n0<qtyOf(a)?'ADMIT '+(n0+1)+' of '+qtyOf(a):'ADMITTED EXTRA',esc(a.name));return;}
+  if(S.assignCode){var c=S.assignCode;S.assignCode=null;if(S.linkUid){add('','','undo',S.linkUid);S.linkUid=null;}$('q').placeholder='Order ID, ticket no. or name';var n0=admits()[a.order_id]||0;add(a.order_id,c);beep(true);result(n0<qtyOf(a)?'ok':'warn',n0<qtyOf(a)?'ADMIT '+(n0+1)+' of '+qtyOf(a):'ADMITTED EXTRA',esc(a.name));return;}
   var n=admits()[a.order_id]||0,q=qtyOf(a),mine=live().filter(function(o){return String(o.order_id||o.order)===String(a.order_id);});
   var sh=$('sheet');sh.hidden=false;
   sh.innerHTML='<div style="font-size:22px;font-weight:800">'+esc(a.name)+'</div><div class="muted small">'+esc(a.order_id)+(a.email?' · '+esc(a.email):'')+'</div><div class="count" style="margin:10px 0">'+n+' <small>of '+q+' in</small></div><div class="row"><button class="ok" id="shIn">'+(n<q?'Admit 1':'Admit 1 more')+'</button><button id="shUndo"'+(mine.length?'':' disabled style="opacity:.4"')+'>Undo 1</button></div><p><button id="shClose" style="width:100%">Close</button></p>';
@@ -395,42 +471,151 @@ $('impBtn').onclick=function(){var b=$('impBtn');if(b.disabled)return;b.disabled
   api({action:'importnow'}).then(function(r){b.textContent=r.ok?(r.throttled?'Just checked, try again in 20s':(r.added?'Done, '+r.added+' new order(s) in':'No new orders yet')):'Failed: '+r.error;return pull();},function(e){b.textContent='Failed: '+e.message;})
   .then(function(){setTimeout(function(){b.disabled=false;b.textContent='Import new sales now';},5000);});};
 
-/* ---------- scanning ---------- */
-var det=null;try{if('BarcodeDetector' in window)det=new BarcodeDetector({formats:['qr_code']});}catch(e){det=null;}
-function decodeCanvas(cv){
-  var ctx=cv.getContext('2d',{willReadFrequently:true}),d=ctx.getImageData(0,0,cv.width,cv.height);
-  if(!window.jsQR)return null;var r=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});return r?r.data:null;
+/* ---------- scanning (v4.6: zxing reader on iPhone, centre crop, sharper camera, torch) ---------- */
+var det=null,detKind='jsQR';
+function pickDetector(){
+  if(det)return;
+  function zx(){try{if(window.BarcodeDetectionAPI&&BarcodeDetectionAPI.BarcodeDetector){det=new BarcodeDetectionAPI.BarcodeDetector({formats:['qr_code']});detKind='zxing';try{BarcodeDetectionAPI.prepareZXingModule&&BarcodeDetectionAPI.prepareZXingModule({fireImmediately:true});}catch(e){}}}catch(e){det=null;}label();}
+  function label(){var el=$('scanInfo');if(el)el.textContent='Reader: '+detKind;}
+  if('BarcodeDetector' in window&&window.BarcodeDetector.getSupportedFormats){
+    window.BarcodeDetector.getSupportedFormats().then(function(f){if(det)return;if(f.indexOf('qr_code')>=0){try{det=new window.BarcodeDetector({formats:['qr_code']});detKind='built-in';}catch(e){}label();}else zx();},zx);
+  }else zx();
 }
-function decodeSource(src,w,h){
-  if(det)return det.detect(src).then(function(c){return c.length?c[0].rawValue:fallback();},fallback);
-  return Promise.resolve(fallback());
-  function fallback(){var sizes=[1400,900,600];for(var i=0;i<sizes.length;i++){var s=Math.min(1,sizes[i]/Math.max(w,h)),cv=document.createElement('canvas');cv.width=Math.round(w*s);cv.height=Math.round(h*s);cv.getContext('2d').drawImage(src,0,0,cv.width,cv.height);var v=decodeCanvas(cv);if(v)return v;}return null;}
+pickDetector();window.addEventListener('load',pickDetector);
+function jsqrOn(cv){var ctx=cv.getContext('2d',{willReadFrequently:true}),d=ctx.getImageData(0,0,cv.width,cv.height);
+  if(!window.jsQR)return null;var r=jsQR(d.data,d.width,d.height,{inversionAttempts:'attemptBoth'});return r?r.data:null;}
+var CV=document.createElement('canvas');
+function grab(src,w,h,crop,size){ // crop: fraction of the shorter side, centred
+  var side=Math.min(w,h)*crop,sx=(w-side)/2,sy=(h-side)/2,s=Math.min(size,side);
+  CV.width=CV.height=Math.round(s);var c=CV.getContext('2d',{willReadFrequently:true});c.imageSmoothingEnabled=true;c.drawImage(src,sx,sy,side,side,0,0,CV.width,CV.height);return CV;}
+function fallback(src,w,h,photo){
+  var tries=photo?[[1,1600],[1,1000],[.7,900],[.45,700]]:[[.75,640],[.5,480]];
+  for(var i=0;i<tries.length;i++){var v=jsqrOn(grab(src,w,h,tries[i][0],tries[i][1]));if(v)return v;}
+  return null;}
+function decodeSource(src,w,h,photo){
+  if(det){return det.detect(src).then(function(c){if(c&&c.length)return c[0].rawValue;
+      if(!photo)return null; // zxing already looked at the whole frame
+      return det.detect(grab(src,w,h,.6,1200)).then(function(c2){return c2&&c2.length?c2[0].rawValue:fallback(src,w,h,true);},function(){return fallback(src,w,h,true);});
+    },function(){return fallback(src,w,h,photo);});}
+  return Promise.resolve(fallback(src,w,h,photo));
 }
 $('photoBtn').onclick=function(){$('photo').value='';$('photo').click();};
 $('photo').onchange=function(){
   var f=this.files&&this.files[0];if(!f)return;result('warn','Reading photo…','');
-  var img=new Image();img.onload=function(){decodeSource(img,img.naturalWidth,img.naturalHeight).then(function(v){URL.revokeObjectURL(img.src);if(v)handle(v);else{beep(false);result('bad','No QR code found','Try again closer, or type the order ID');}});};
+  var img=new Image();img.onload=function(){decodeSource(img,img.naturalWidth,img.naturalHeight,true).then(function(v){URL.revokeObjectURL(img.src);if(v)handle(v);else{beep(false);result('bad','No QR code found','Hold the phone 15 to 25cm away, turn their screen brightness up, or type the ticket number');}});};
   img.src=URL.createObjectURL(f);
 };
-var stream=null,loop=null;
-function stopCam(){S.camOn=false;if(loop)clearTimeout(loop);if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}$('cam').classList.remove('on');$('camBtn').textContent='Live scan';}
+var stream=null,loop=null,track=null,torchOn=false,miss=0,lastVal='',lastAt=0;
+function stopCam(){S.camOn=false;if(loop)clearTimeout(loop);if(stream){stream.getTracks().forEach(function(t){t.stop();});stream=null;}track=null;torchOn=false;$('cam').classList.remove('on');$('camBtn').textContent='Live scan';$('torchBtn').hidden=true;}
+function startCam(){
+  var want={video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080},advanced:[{focusMode:'continuous'}]},audio:false};
+  return navigator.mediaDevices.getUserMedia(want).catch(function(e){
+    if(e&&(e.name==='NotAllowedError'||e.name==='SecurityError'))throw e;
+    return navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});});
+}
 $('camBtn').onclick=function(){
   if(S.camOn){stopCam();return;}
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){result('bad','Live camera not available here','Use Photo scan instead');return;}
-  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false}).then(function(s){
-    stream=s;var v=$('vid');v.srcObject=s;v.play();S.camOn=true;$('cam').classList.add('on');$('camBtn').textContent='Stop camera';tick();
-  },function(e){result('bad','Live camera blocked','Use Photo scan instead ('+esc(e.name||e)+')');});
+  pickDetector();
+  startCam().then(function(s){
+    stream=s;track=s.getVideoTracks()[0];var v=$('vid');v.srcObject=s;v.setAttribute('playsinline','');v.muted=true;
+    var p=v.play();if(p&&p.catch)p.catch(function(){});
+    S.camOn=true;miss=0;$('cam').classList.add('on');$('camBtn').textContent='Stop camera';
+    try{var cap=track.getCapabilities?track.getCapabilities():{};$('torchBtn').hidden=!cap.torch;
+      if(cap.zoom&&cap.zoom.max>=1.5)track.applyConstraints({advanced:[{zoom:Math.min(1.5,cap.zoom.max)}]}).catch(function(){});}catch(e){}
+    tick();
+  },function(e){result('bad','Live camera blocked','Allow the camera for this site in Settings, or use Photo scan ('+esc(e.name||e)+')');});
 };
+$('torchBtn').onclick=function(){if(!track)return;torchOn=!torchOn;track.applyConstraints({advanced:[{torch:torchOn}]}).catch(function(){});$('torchBtn').textContent=torchOn?'Light off':'Light on';};
+document.addEventListener('visibilitychange',function(){if(document.hidden&&S.camOn)stopCam();});
 function tick(){
   if(!S.camOn)return;var v=$('vid');
-  if(v.readyState>=2&&Date.now()>S.pause){
-    decodeSource(v,v.videoWidth,v.videoHeight).then(function(val){if(val&&S.camOn){S.pause=Date.now()+2200;handle(val);}loop=setTimeout(tick,180);});
-  }else loop=setTimeout(tick,200);
+  if(v.readyState>=2&&v.videoWidth&&Date.now()>S.pause){
+    decodeSource(v,v.videoWidth,v.videoHeight,false).then(function(val){
+      if(val&&S.camOn){
+        if(val===lastVal&&Date.now()-lastAt<4000){loop=setTimeout(tick,150);return;} // same code still in view
+        lastVal=val;lastAt=Date.now();miss=0;S.pause=Date.now()+1800;handle(val);
+      }else if(S.camOn&&++miss===60){$('camHint').hidden=false;}
+      loop=setTimeout(tick,det?90:140);
+    },function(){loop=setTimeout(tick,200);});
+  }else loop=setTimeout(tick,150);
 }
+
+/* ---------- PDF door list (v4.6) ---------- */
+function makePdf(){
+  var J=window.jspdf.jsPDF,doc=new J({unit:'mm',format:'a4'}),m=admits(),W=doc.internal.pageSize.getWidth();
+  var tickets=S.att.filter(function(a){return !a.guest&&qtyOf(a)>0;}).sort(function(a,b){return surname(a.name).localeCompare(surname(b.name));});
+  var guests=S.att.filter(function(a){return a.guest;}).sort(function(a,b){return String(a.guest).localeCompare(String(b.guest))||surname(a.name).localeCompare(surname(b.name));});
+  var sold=tickets.reduce(function(s,a){return s+qtyOf(a);},0),inn=live().length;
+  doc.setFont('helvetica','bold');doc.setFontSize(18);doc.text(String(S.ev.name||'Door list'),14,18);
+  doc.setFont('helvetica','normal');doc.setFontSize(10);
+  doc.text((S.ev.label||S.ev.date||'')+'   ·   '+sold+' tickets, '+tickets.length+' orders, '+guests.length+' guests   ·   '+inn+' in so far',14,25);
+  doc.text('Made '+new Date().toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'})+' on '+S.device,14,30);
+  var tk=function(a){var n=m[a.order_id]||0,q=qtyOf(a);return [a.name||'(no name)',a.order_id,String(q),n?n+'/'+q:'',''];};
+  doc.autoTable({startY:35,head:[['Name','Order','Qty','In','Tick']],body:tickets.map(tk),theme:'grid',styles:{fontSize:9,cellPadding:1.6},headStyles:{fillColor:[224,165,38],textColor:20},columnStyles:{0:{cellWidth:70},2:{halign:'center',cellWidth:14},3:{halign:'center',cellWidth:16},4:{cellWidth:16}}});
+  if(guests.length){var y=doc.lastAutoTable.finalY+8;if(y>270){doc.addPage();y=18;}
+    doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text('Guest list',14,y);
+    doc.autoTable({startY:y+3,head:[['Name','Guest of','In','Tick']],body:guests.map(function(a){return [a.name,a.guest,(m[a.order_id]?'IN':''),''];}),theme:'grid',styles:{fontSize:9,cellPadding:1.6},headStyles:{fillColor:[123,92,255]},columnStyles:{0:{cellWidth:70},2:{halign:'center',cellWidth:16},3:{cellWidth:16}}});}
+  var n=doc.internal.getNumberOfPages();for(var i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(8);doc.text('TWM Door · page '+i+' of '+n,W-14,290,{align:'right'});}
+  var fname=('TWM door list '+(S.ev.date||'')+' '+(S.ev.name||'')).replace(/[^A-Za-z0-9 -]+/g,'').replace(/\s+/g,' ').trim()+'.pdf';
+  var blob=doc.output('blob');
+  try{var file=new File([blob],fname,{type:'application/pdf'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){navigator.share({files:[file],title:fname}).catch(function(){openBlob(blob,fname);});return;}}catch(e){}
+  openBlob(blob,fname);
+}
+function openBlob(blob,fname){var u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=fname;a.target='_blank';document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u);},60000);}
+
+/* ---------- guest list (v4.6) ---------- */
+var GUEST_PAGE=location.origin+location.pathname.replace(/[^\/]*$/,'')+'guest.html';
+function renderGuests(){
+  var g=S.guests||[],m=admits(),el=$('gList');if(!el)return;
+  if(!g.length){el.innerHTML='<p class="muted small">No guests on this show yet.</p>';return;}
+  var bands={};g.forEach(function(x){(bands[x.band]=bands[x.band]||[]).push(x);});
+  el.innerHTML=Object.keys(bands).sort().map(function(b){return '<div class="small" style="margin-top:8px;color:var(--accent);font-weight:700">'+esc(b)+' ('+bands[b].length+')</div>'+bands[b].map(function(x){
+    return '<div class="gl"><span>'+esc(x.name)+(m[x.id]?' <b style="color:var(--ok)">IN</b>':'')+'</span><button data-del="'+esc(x.id)+'">Remove</button></div>';}).join('');}).join('');
+  Array.prototype.forEach.call(el.querySelectorAll('[data-del]'),function(b){b.onclick=function(){
+    if(b.textContent!=='Sure?'){b.textContent='Sure?';return;}
+    api({action:'guestdel',event:S.ev.event_id,id:b.getAttribute('data-del')}).then(function(){pull();});};});
+}
+$('gMake').onclick=function(){var band=$('gBand').value.trim(),cap=Number($('gCap').value)||0,o=$('gOut');
+  if(!band||cap<1){o.innerHTML='<p class="small err">Type the band name and how many guests.</p>';return;}
+  o.innerHTML='<p class="small muted">Making link…</p>';
+  api({action:'guestlink',event:S.ev.event_id,band:band,cap:cap}).then(function(r){
+    if(!r.ok){o.innerHTML='<p class="small err">Failed: '+esc(r.error)+'</p>';return;}
+    var url=GUEST_PAGE+'?e='+encodeURIComponent(S.ev.event_id)+'&b='+encodeURIComponent(r.band)+'&c='+r.cap+'&k='+r.k;
+    var msg='Hi, here is your guest list link for '+(S.ev.name||'the show')+' at Three Wise Monkeys ('+(S.ev.label||S.ev.date||'')+'). You can add up to '+r.cap+' names: '+url;
+    o.innerHTML='<div class="lnk">'+esc(url)+'</div><div class="row"><button id="gCopy" class="sm">Copy message</button><a class="btnlink" style="padding:8px 12px;font-size:14px" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent(msg)+'">WhatsApp</a></div>';
+    $('gCopy').onclick=function(){var b=this;(navigator.clipboard?navigator.clipboard.writeText(msg):Promise.reject()).then(function(){b.textContent='Copied';},function(){b.textContent='Long-press the link to copy';});};
+  },function(e){o.innerHTML='<p class="small err">Failed: '+esc(e.message)+'</p>';});};
+$('gdAdd').onclick=function(){var n=$('gdName').value.trim(),b=$('gdBand').value.trim(),msg=$('gMsg');if(!n){msg.textContent='Type their name first.';return;}
+  msg.textContent='Adding…';
+  api({action:'guestdoor',event:S.ev.event_id,name:n,band:b,device:S.device}).then(function(r){
+    if(!r.ok){msg.textContent='Failed: '+r.error;return;}
+    $('gdName').value='';msg.textContent='';S.guests=(S.guests||[]).concat([{id:r.id,name:n,band:b||'Door'}]);
+    S.att.push({order_id:r.id,name:n,qty:1,guest:b||'Door',tickets:''});add(r.id,'guest');beep(true);result('ok','ADMIT GUEST',esc(n)+(b?' · '+esc(b):''));renderGuests();
+  },function(e){msg.textContent='Failed: '+e.message;});};
+
+/* ---------- feedback, door notes, ratings (v4.6) ---------- */
+function sendNote(kind,textEl,whoEl,msgEl,ev){var t=textEl.value.trim();if(!t){msgEl.textContent='Type something first.';return;}
+  msgEl.textContent='Sending…';store('who',whoEl.value.trim());
+  api({action:'note',event:ev||'',kind:kind,text:t,who:whoEl.value.trim(),device:S.device+' · '+navigator.userAgent.replace(/^.*?\(([^)]*)\).*$/,'$1').slice(0,60)}).then(function(r){
+    if(r.ok){textEl.value='';msgEl.textContent='Sent to AJ. Thanks.';}else msgEl.textContent='Failed: '+r.error;},function(e){msgEl.textContent='Failed: '+e.message;});}
+$('fbWho').value=$('nWho').value=store('who')||'';
+$('fbSend').onclick=function(){sendNote('App feedback',$('fbText'),$('fbWho'),$('fbMsg'),'');};
+$('nSend').onclick=function(){if(!S.ev)return;sendNote($('nKind').value,$('nText'),$('nWho'),$('nMsg'),S.ev.event_id);};
+$('rLoad').onclick=function(){if(!S.ev)return;var o=$('rOut');o.innerHTML='<p class="small muted">Loading…</p>';
+  api({action:'ratings',event:S.ev.event_id}).then(function(r){
+    if(!r.ok){o.innerHTML='<p class="small err">Failed: '+esc(r.error)+'</p>';return;}
+    var h=r.count?'<div class="stars">'+'★★★★★'.slice(0,Math.round(r.avg))+'<span style="opacity:.25">'+'★★★★★'.slice(Math.round(r.avg))+'</span></div><p class="small" style="margin:4px 0">'+r.avg+' average from '+r.count+' rating'+(r.count===1?'':'s')+' · '+r.spread.map(function(n,i){return (i+1)+'★ '+n;}).join(', ')+'</p>':'<p class="small muted">No ratings yet. They come in after the thank-you emails go out (about 10am the day after).</p>';
+    if(r.comments.length)h+='<div class="small" style="margin-top:8px;font-weight:700">Comments</div>'+r.comments.map(function(c){return '<div class="gl"><span>'+esc(c.comment)+'<br><span class="muted">'+esc(c.name||'')+' · '+esc(c.rating)+'★</span></span></div>';}).join('');
+    if(r.notes.length)h+='<div class="small" style="margin-top:8px;font-weight:700">Door notes</div>'+r.notes.map(function(n){return '<div class="gl"><span>'+esc(n.text)+'<br><span class="muted">'+esc(n.kind)+(n.who?' · '+esc(n.who):'')+' · '+tm(n.time)+'</span></span></div>';}).join('');
+    o.innerHTML=h;},function(e){o.innerHTML='<p class="small err">Failed: '+esc(e.message)+'</p>';});};
 
 /* ---------- end of night ---------- */
 var EXEC_URL='https://script.google.com/macros/s/AKfycbxjcYGYq24dP0wuiNrf9818OSywLxVpwIi__ZjJOwJL2ptMOyLC9w0irRqiyU8Z4G8/exec';
-$('printBtn').onclick=function(){if(!S.ev)return;window.open(EXEC_URL+'?action=print&event='+encodeURIComponent(S.ev.event_id)+'&pin='+encodeURIComponent(S.pin),'_blank');};
+$('printBtn').onclick=function(){if(!S.ev)return;var m=$('eonMsg');
+  if(!window.jspdf||!window.jspdf.jsPDF){m.textContent='PDF tool did not load, opening the web list instead.';window.open(EXEC_URL+'?action=print&event='+encodeURIComponent(S.ev.event_id)+'&pin='+encodeURIComponent(S.pin),'_blank');return;}
+  m.textContent='Making PDF…';pull().then(function(){try{makePdf();m.textContent='';}catch(e){m.textContent='PDF failed: '+e.message;}});};
 function eon(action,label){
   if(!S.ev)return;var m=$('eonMsg');
   if(S.eonArm!==action){S.eonArm=action;m.textContent='Tap "'+label+'" again to confirm.';setTimeout(function(){if(S.eonArm===action){S.eonArm=null;m.textContent='';}},6000);return;}

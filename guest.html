@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TWM Guest List</title>
+<!-- TWM guest list form v4.6 (8 Nov 2026). Bands open a signed link made on the door page. Saves to the Guests tab of the TWM Live Door & Customers sheet. -->
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&display=swap">
+<style>
+:root{--bg:#0e0d0c;--panel:#1f1e1d;--panel2:#2d2c2c;--ink:#f3f0f6;--muted:#a39dac;--line:#3e3d3d;--accent:#e0a526;--ok:#1f9d55;--bad:#c0392b}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 -apple-system,BlinkMacSystemFont,system-ui,sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px 60px}
+h1{font-family:'Oswald',Impact,sans-serif;font-weight:700;font-size:28px;text-transform:uppercase;letter-spacing:.5px;margin:10px 0 2px}
+.muted{color:var(--muted)}.small{font-size:13px}
+.logo{display:inline-block;background:#fff;border-radius:12px;padding:8px 12px;line-height:0}.logo img{height:56px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+input{font:inherit;font-size:17px;width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:5px 0}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:14px 16px;background:var(--accent);color:#111;width:100%;cursor:pointer}
+button[disabled]{opacity:.5}
+.n{display:flex;align-items:center;gap:8px}.n span{flex:0 0 26px;color:var(--muted);text-align:right}
+.ok{color:#5fd38d}.err{color:#ff8a8a}
+</style>
+</head><body>
+<div class="wrap">
+  <div style="text-align:center"><span class="logo"><img src="https://threewisemonkeyscolchester.com/wp-content/uploads/2025/03/TWM-POS-1024x640.png" alt="Three Wise Monkeys"></span></div>
+  <h1 id="title">Guest list</h1>
+  <p id="sub" class="muted">Loading…</p>
+  <div id="form" class="card" hidden>
+    <p class="small muted" style="margin-top:0">Put one full name per line (as on their ID). Guests give their name at the door. You can come back to this link and change the list until the end of show day.</p>
+    <div id="names"></div>
+    <input id="by" placeholder="Your name and number (so we can reach you)" autocomplete="name">
+    <p><button id="save">Save guest list</button></p>
+    <p id="msg" class="small"></p>
+  </div>
+</div>
+<script>
+(function(){
+var API_URL='https://script.google.com/macros/s/AKfycbxjcYGYq24dP0wuiNrf9818OSywLxVpwIi__ZjJOwJL2ptMOyLC9w0irRqiyU8Z4G8/exec';
+var $=function(id){return document.getElementById(id);};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+var P=new URLSearchParams(location.search),Q={event:P.get('e')||'',band:P.get('b')||'',cap:Number(P.get('c'))||0,k:P.get('k')||''};
+function api(b){for(var k in Q)b[k]=Q[k];return fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(b),redirect:'follow'}).then(function(r){return r.json();});}
+var ERR={link:'This link is not valid. Ask the venue for a new one.',no_event:'This show is not on our system any more.',closed:'This guest list has closed. Contact the venue.'};
+api({action:'guestinfo'}).then(function(r){
+  if(!r.ok){$('sub').innerHTML='<span class="err">'+esc(ERR[r.error]||('Error: '+r.error))+'</span>';return;}
+  $('title').textContent=r.show.name;
+  $('sub').innerHTML='Guest list for <b>'+esc(r.band)+'</b> · '+esc(r.show.label)+' · up to '+r.cap+' guest'+(r.cap===1?'':'s');
+  if(!r.open){$('sub').innerHTML+='<br><span class="err">'+ERR.closed+'</span>';return;}
+  var h='';for(var i=0;i<r.cap;i++)h+='<div class="n"><span>'+(i+1)+'</span><input class="gn" maxlength="60" autocomplete="off" value="'+esc(r.names[i]||'')+'" placeholder="Guest name"></div>';
+  $('names').innerHTML=h;$('form').hidden=false;
+  try{$('by').value=localStorage.getItem('twmguest.by')||'';}catch(e){}
+  if(r.names.length)$('msg').innerHTML='<span class="ok">You already have '+r.names.length+' on the list. Change them and save again if you need to.</span>';
+},function(){$('sub').innerHTML='<span class="err">Could not reach the venue system. Check your signal and reload.</span>';});
+$('save').onclick=function(){
+  var names=[].map.call(document.querySelectorAll('.gn'),function(i){return i.value.trim();}).filter(Boolean),b=$('save');
+  if(!$('by').value.trim()){$('msg').innerHTML='<span class="err">Add your name and number at the bottom first.</span>';return;}
+  b.disabled=true;$('msg').textContent='Saving…';
+  try{localStorage.setItem('twmguest.by',$('by').value.trim());}catch(e){}
+  api({action:'guestadd',names:names,by:$('by').value.trim()}).then(function(r){b.disabled=false;
+    $('msg').innerHTML=r.ok?'<span class="ok">Saved. '+r.saved+' of '+r.cap+' places used. See you there.</span>':'<span class="err">'+esc(ERR[r.error]||('Failed: '+r.error))+'</span>';
+  },function(){b.disabled=false;$('msg').innerHTML='<span class="err">Could not save. Check your signal and try again.</span>';});
+};
+})();
+</script>
+</body></html>
